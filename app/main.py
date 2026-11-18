@@ -44,7 +44,11 @@ def create_app():
     def archive(run_id):
         from app.archive import build_archive
         run=store.get(run_id)
-        return application.response_class(build_archive(run),mimetype="text/csv",headers={"Content-Disposition":'attachment; filename="evidence.csv"'})
+        verdict=run.get("archive") or {}
+        if not verdict.get("ready",True):
+            raise DomainError("ARCHIVE_BLOCKED","归档结论与处置单不一致，先处理阻断项",409)
+        current=store.latest_dispositions([form["event_id"] for form in run.get("dispositions") or []])
+        return application.response_class(build_archive(run,current),mimetype="text/csv",headers={"Content-Disposition":'attachment; filename="evidence.csv"'})
     for index,(slug,title) in enumerate(MODULES,1):
         module=importlib.import_module(f"app.modules.m{index}_{slug}.handler")
         application.register_blueprint(module.bp)
